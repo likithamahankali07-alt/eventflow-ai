@@ -2,10 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   Calendar, MapPin, Users, CheckCircle2, Star, Sparkles, Copy, ExternalLink,
-  QrCode, Award, MessageSquare, Activity, Search, ShieldCheck, RefreshCw, AlertCircle
+  QrCode, Award, MessageSquare, Activity, Search, ShieldCheck, RefreshCw, AlertCircle, BarChart2, FileText
 } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { eventApi, registrationApi, attendanceApi, feedbackApi, certificateApi } from '../lib/api';
+import { ProactiveMonitor } from '../components/ProactiveMonitor';
+import { RealtimeStatusBadge } from '../components/RealtimeStatusBadge';
+import { useRealtimeSubscription } from '../lib/realtime';
 
 export const EventDetails: React.FC<{ onOpenAiCopilot: (eventId: string, eventName: string) => void }> = ({
   onOpenAiCopilot,
@@ -15,6 +17,11 @@ export const EventDetails: React.FC<{ onOpenAiCopilot: (eventId: string, eventNa
   const [event, setEvent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'participants' | 'checkin' | 'feedback' | 'certificates'>('overview');
+
+  // Realtime subscription for attendance table
+  const realtimeStatus = useRealtimeSubscription('attendance', eventId, () => {
+    loadEventData();
+  });
 
   // Participants Tab State
   const [participants, setParticipants] = useState<any[]>([]);
@@ -45,7 +52,6 @@ export const EventDetails: React.FC<{ onOpenAiCopilot: (eventId: string, eventNa
       const res = await eventApi.getEventDetails(eventId);
       setEvent(res.data);
 
-      // Pre-fetch tab data
       fetchParticipants();
       fetchFeedback();
     } catch (err) {
@@ -90,7 +96,7 @@ export const EventDetails: React.FC<{ onOpenAiCopilot: (eventId: string, eventNa
     } catch (err: any) {
       setCheckInResult({
         success: false,
-        error: err.response?.data?.detail || 'Check-in failed. Please verify the registration token.',
+        error: err.response?.data?.detail || 'Check-in failed. Please verify registration token.',
       });
     } finally {
       setCheckInLoading(false);
@@ -158,18 +164,45 @@ export const EventDetails: React.FC<{ onOpenAiCopilot: (eventId: string, eventNa
                 {event.event_type}
               </span>
               <span className="text-xs text-emerald-400 font-medium">● {event.status}</span>
+              <RealtimeStatusBadge status={realtimeStatus} />
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">{event.name}</h1>
             <p className="text-xs sm:text-sm text-slate-400 max-w-2xl">{event.description}</p>
           </div>
 
-          <button
-            onClick={() => onOpenAiCopilot(event.id, event.name)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-semibold shadow-lg shadow-cyan-600/20 transition-all shrink-0"
-          >
-            <Sparkles className="w-4 h-4 text-cyan-200 animate-pulse" />
-            <span>AI Operations Copilot</span>
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Link
+              to={`/events/${event.id}/attendance`}
+              className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-cyan-950 border border-cyan-800 text-cyan-300 hover:bg-cyan-900 text-xs font-semibold transition-all"
+            >
+              <QrCode className="w-4 h-4" />
+              <span>QR Scanner</span>
+            </Link>
+
+            <Link
+              to={`/events/${event.id}/analytics`}
+              className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-blue-950 border border-blue-800 text-blue-300 hover:bg-blue-900 text-xs font-semibold transition-all"
+            >
+              <BarChart2 className="w-4 h-4" />
+              <span>Analytics</span>
+            </Link>
+
+            <Link
+              to={`/events/${event.id}/report`}
+              className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white text-xs font-semibold transition-all"
+            >
+              <FileText className="w-4 h-4" />
+              <span>Report</span>
+            </Link>
+
+            <button
+              onClick={() => onOpenAiCopilot(event.id, event.name)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-semibold shadow-lg shadow-cyan-600/20 transition-all shrink-0"
+            >
+              <Sparkles className="w-4 h-4 text-cyan-200 animate-pulse" />
+              <span>AI Copilot</span>
+            </button>
+          </div>
         </div>
 
         {/* Info Strip */}
@@ -184,12 +217,19 @@ export const EventDetails: React.FC<{ onOpenAiCopilot: (eventId: string, eventNa
           </div>
           <div className="flex items-center gap-2">
             <Users className="w-4 h-4 text-emerald-400" />
-            <span>Capacity: {stats.total_registrations} / {event.capacity} seats ({stats.spots_remaining} left)</span>
+            <span>Capacity: {stats.total_registrations} / {event.capacity} seats</span>
           </div>
         </div>
       </div>
 
-      {/* Navigation Sub-Tabs */}
+      {/* Proactive Agent Event Monitor */}
+      <ProactiveMonitor
+        stats={{ ...stats, capacity: event.capacity }}
+        onSendReminder={() => onOpenAiCopilot(event.id, event.name)}
+        onViewParticipants={() => setActiveTab('participants')}
+      />
+
+      {/* Sub-Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto p-1 bg-slate-900 border border-slate-800 rounded-2xl text-xs font-semibold no-scrollbar">
         <button
           onClick={() => setActiveTab('overview')}
@@ -282,7 +322,7 @@ export const EventDetails: React.FC<{ onOpenAiCopilot: (eventId: string, eventNa
               <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
                 <div>
                   <h4 className="text-xs font-semibold text-blue-400">Public Registration Page</h4>
-                  <p className="text-[11px] text-slate-400">Share with students and attendees to register</p>
+                  <p className="text-[11px] text-slate-400">Share with attendees to register</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <input

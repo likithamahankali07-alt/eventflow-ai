@@ -13,6 +13,8 @@ import { PublicFeedback } from './pages/PublicFeedback';
 import { CertificateVerify } from './pages/CertificateVerify';
 import { AIWorkspace } from './pages/AIWorkspace';
 import { QRAttendance } from './pages/QRAttendance';
+import { EventAnalytics } from './pages/EventAnalytics';
+import { EventReport } from './pages/EventReport';
 
 export function App() {
   const [user, setUser] = useState<any>(null);
@@ -87,6 +89,14 @@ export function App() {
             <Route
               path="/events/:eventId/attendance"
               element={user ? <QRAttendance /> : <Navigate to="/auth" replace />}
+            />
+            <Route
+              path="/events/:eventId/analytics"
+              element={user ? <EventAnalytics /> : <Navigate to="/auth" replace />}
+            />
+            <Route
+              path="/events/:eventId/report"
+              element={user ? <EventReport /> : <Navigate to="/auth" replace />}
             />
             <Route
               path="/ai-workspace"
