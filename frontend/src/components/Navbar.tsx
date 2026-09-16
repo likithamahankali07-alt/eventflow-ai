@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Sparkles, Calendar, PlusCircle, LayoutDashboard, LogOut, ShieldCheck, Zap } from 'lucide-react';
+import { Sparkles, Calendar, PlusCircle, LayoutDashboard, LogOut, ShieldCheck, Zap, Bot } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface NavbarProps {
@@ -32,7 +32,7 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onOpenAiAssistant }) => {
           </div>
           <div>
             <span className="font-extrabold text-xl tracking-tight gradient-text">EventFlow</span>
-            <span className="ml-1.5 px-2 py-0.5 text-[10px] font-semibold tracking-wider text-cyan-400 bg-cyan-950/60 border border-cyan-800/50 rounded-full">AI 2.5</span>
+            <span className="ml-1.5 px-2 py-0.5 text-[10px] font-semibold tracking-wider text-cyan-400 bg-cyan-950/60 border border-cyan-800/50 rounded-full">AI Workspace</span>
           </div>
         </Link>
 
@@ -64,20 +64,24 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onOpenAiAssistant }) => {
             </Link>
 
             <Link
+              to="/ai-workspace"
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-all ${
+                isActive('/ai-workspace')
+                  ? 'bg-cyan-600/20 text-cyan-400 border border-cyan-500/30'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
+              }`}
+            >
+              <Bot className="w-4 h-4 text-cyan-400" />
+              <span className="hidden sm:inline">AI Workspace</span>
+            </Link>
+
+            <Link
               to="/events/new"
               className="flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-md shadow-blue-600/20 transition-all hover:scale-[1.02]"
             >
               <PlusCircle className="w-4 h-4" />
               <span>Create Event</span>
             </Link>
-
-            <button
-              onClick={onOpenAiAssistant}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-semibold bg-slate-900 border border-cyan-500/40 text-cyan-300 hover:bg-cyan-950/40 hover:border-cyan-400 transition-all shadow-sm"
-            >
-              <Sparkles className="w-4 h-4 text-cyan-400 animate-pulse" />
-              <span className="hidden md:inline">AI Copilot</span>
-            </button>
 
             <div className="h-6 w-[1px] bg-slate-800 mx-1 sm:mx-2" />
 

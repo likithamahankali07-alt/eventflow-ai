@@ -11,6 +11,8 @@ import { EventDetails } from './pages/EventDetails';
 import { PublicRegister } from './pages/PublicRegister';
 import { PublicFeedback } from './pages/PublicFeedback';
 import { CertificateVerify } from './pages/CertificateVerify';
+import { AIWorkspace } from './pages/AIWorkspace';
+import { QRAttendance } from './pages/QRAttendance';
 
 export function App() {
   const [user, setUser] = useState<any>(null);
@@ -22,7 +24,6 @@ export function App() {
   const [aiEventName, setAiEventName] = useState<string | undefined>(undefined);
 
   useEffect(() => {
-    // Check initial auth session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setLoading(false);
@@ -83,6 +84,14 @@ export function App() {
               path="/events/:eventId"
               element={user ? <EventDetails onOpenAiCopilot={openAiCopilot} /> : <Navigate to="/auth" replace />}
             />
+            <Route
+              path="/events/:eventId/attendance"
+              element={user ? <QRAttendance /> : <Navigate to="/auth" replace />}
+            />
+            <Route
+              path="/ai-workspace"
+              element={user ? <AIWorkspace /> : <Navigate to="/auth" replace />}
+            />
 
             {/* Default Fallback */}
             <Route path="*" element={<Navigate to={user ? "/dashboard" : "/auth"} replace />} />
@@ -97,7 +106,7 @@ export function App() {
         />
 
         <footer className="border-t border-slate-900 py-6 text-center text-xs text-slate-500 glass-panel mt-auto">
-          EventFlow AI 2.5 • Real-time Event Operations & Intelligence Platform
+          EventFlow AI 2.5 • Real-time Event Operations & Grounded Intelligence Workspace
         </footer>
 
       </div>
