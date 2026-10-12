@@ -20,7 +20,6 @@ export const Dashboard: React.FC<{ onOpenAiCopilot: (eventId?: string) => void }
       setEvents(res.data || []);
     } catch (err: any) {
       console.error('Failed to load events:', err);
-      // Fallback empty events if backend/database unconfigured
       setEvents([]);
     } finally {
       setLoading(false);
@@ -51,7 +50,7 @@ export const Dashboard: React.FC<{ onOpenAiCopilot: (eventId?: string) => void }
             Organizer Command Dashboard
           </h1>
           <p className="text-xs sm:text-sm text-slate-400 max-w-xl">
-            Real-time analytics for your college workshops, hackathons, and GDG events.
+            Real-time AI operations, attendance tracking, and growth intelligence for tech communities, company summits, college clubs, & conferences.
           </p>
         </div>
 
@@ -158,7 +157,7 @@ export const Dashboard: React.FC<{ onOpenAiCopilot: (eventId?: string) => void }
             <div className="space-y-1">
               <h3 className="font-semibold text-slate-200 text-sm">No events yet</h3>
               <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                You have not created any events yet. Click below to publish your first college workshop or hackathon.
+                You have not created any events yet. Click below to publish your first event, conference, meetup, or workshop.
               </p>
             </div>
             <Link
@@ -179,7 +178,7 @@ export const Dashboard: React.FC<{ onOpenAiCopilot: (eventId?: string) => void }
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wide uppercase bg-blue-950 border border-blue-800/60 text-blue-300">
-                      {evt.event_type}
+                      {evt.event_type.replace('_', ' ')}
                     </span>
                     <span className={`text-[10px] font-medium ${
                       evt.status === 'upcoming' ? 'text-emerald-400' : 'text-slate-400'

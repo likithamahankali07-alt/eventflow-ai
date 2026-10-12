@@ -10,8 +10,8 @@ logger = logging.getLogger("eventflow.main")
 
 app = FastAPI(
     title="EventFlow AI Backend API",
-    description="Real-time Event Operations & AI Agent Backend for College Events, Hackathons & GDG Chapters",
-    version="1.0.0"
+    description="Universal Real-time Event Operations, Registration Growth & AI Agent Platform",
+    version="2.0.0"
 )
 
 # Configure CORS for React Vite frontend

@@ -1,7 +1,18 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PlusCircle, Calendar, Clock, MapPin, Users, Type, AlignLeft, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { 
+  Calendar, Clock, MapPin, Users, Type, AlignLeft, 
+  ArrowLeft, CheckCircle2, Globe, HelpCircle, Plus, Trash2, Tag
+} from 'lucide-react';
 import { eventApi } from '../lib/api';
+
+interface CustomQuestion {
+  id: string;
+  label: string;
+  type: 'text' | 'select' | 'checkbox';
+  required: boolean;
+  options?: string;
+}
 
 export const CreateEvent: React.FC = () => {
   const navigate = useNavigate();
@@ -10,6 +21,7 @@ export const CreateEvent: React.FC = () => {
     name: '',
     description: '',
     event_type: 'workshop',
+    audience_type: 'general', // 'general' | 'student'
     date: '',
     start_time: '10:00',
     end_time: '17:00',
@@ -18,8 +30,33 @@ export const CreateEvent: React.FC = () => {
     registration_deadline: '',
   });
 
+  const [customQuestions, setCustomQuestions] = useState<CustomQuestion[]>([]);
+  const [newQuestionLabel, setNewQuestionLabel] = useState('');
+  const [newQuestionType, setNewQuestionType] = useState<'text' | 'select' | 'checkbox'>('text');
+  const [newQuestionRequired, setNewQuestionRequired] = useState(false);
+  const [newQuestionOptions, setNewQuestionOptions] = useState('');
+
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  const addCustomQuestion = () => {
+    if (!newQuestionLabel.trim()) return;
+    const q: CustomQuestion = {
+      id: 'q_' + Date.now(),
+      label: newQuestionLabel.trim(),
+      type: newQuestionType,
+      required: newQuestionRequired,
+      options: newQuestionType === 'select' ? newQuestionOptions : undefined,
+    };
+    setCustomQuestions([...customQuestions, q]);
+    setNewQuestionLabel('');
+    setNewQuestionOptions('');
+    setNewQuestionRequired(false);
+  };
+
+  const removeCustomQuestion = (id: string) => {
+    setCustomQuestions(customQuestions.filter(q => q.id !== id));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,12 +70,20 @@ export const CreateEvent: React.FC = () => {
         return;
       }
 
-      // Default registration deadline to event date if not provided
       const deadline = formData.registration_deadline || `${formData.date}T23:59:00Z`;
+
+      const formattedQuestions = customQuestions.map(q => ({
+        id: q.id,
+        label: q.label,
+        type: q.type,
+        required: q.required,
+        options: q.options ? q.options.split(',').map(s => s.trim()).filter(Boolean) : [],
+      }));
 
       const payload = {
         ...formData,
         registration_deadline: deadline,
+        custom_questions: formattedQuestions.length > 0 ? formattedQuestions : null,
       };
 
       const res = await eventApi.createEvent(payload);
@@ -68,7 +113,7 @@ export const CreateEvent: React.FC = () => {
         </button>
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight text-white">Create New Event</h1>
-          <p className="text-xs text-slate-400">Configure parameters, seating capacity, and public registration link</p>
+          <p className="text-xs text-slate-400">Configure parameters, audience type, custom questions, and registration workflow</p>
         </div>
       </div>
 
@@ -95,7 +140,7 @@ export const CreateEvent: React.FC = () => {
                   required
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="e.g. GDG Cloud Workshop & AI Hackathon 2026"
+                  placeholder="e.g. AI Product Summit 2026 / GDG Cloud Workshop / Annual Cultural Fest"
                   className="w-full bg-slate-900 border border-slate-700/80 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500"
                 />
               </div>
@@ -103,7 +148,7 @@ export const CreateEvent: React.FC = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">Event Type *</label>
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">Event Format / Category *</label>
                 <select
                   value={formData.event_type}
                   onChange={(e) => setFormData({ ...formData, event_type: e.target.value })}
@@ -111,15 +156,21 @@ export const CreateEvent: React.FC = () => {
                 >
                   <option value="workshop">Hands-on Workshop</option>
                   <option value="hackathon">Hackathon</option>
-                  <option value="seminar">Seminar / Guest Talk</option>
+                  <option value="conference">Tech / Industry Conference</option>
+                  <option value="corporate_summit">Corporate Summit / Seminar</option>
+                  <option value="webinar">Virtual Webinar / Masterclass</option>
                   <option value="meetup">Community Meetup</option>
-                  <option value="contest">Coding Contest</option>
-                  <option value="conference">Tech Conference</option>
+                  <option value="cultural_fest">Cultural Fest / Arts & Music</option>
+                  <option value="networking_mixer">Networking Mixer / Social</option>
+                  <option value="sports_event">Sports / Esports Tournament</option>
+                  <option value="contest">Contest / Competition</option>
+                  <option value="launch_event">Product Launch / Showcase</option>
+                  <option value="other">Other Event</option>
                 </select>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">Max Seating Capacity *</label>
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">Max Capacity *</label>
                 <div className="relative">
                   <Users className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
                   <input
@@ -134,8 +185,46 @@ export const CreateEvent: React.FC = () => {
               </div>
             </div>
 
+            {/* Audience Type */}
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1.5">Description *</label>
+              <label className="block text-xs font-medium text-slate-300 mb-1.5">Target Audience *</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, audience_type: 'general' })}
+                  className={`p-3 rounded-xl border text-left flex items-start gap-3 transition-all ${
+                    formData.audience_type === 'general'
+                      ? 'bg-blue-600/15 border-blue-500 text-white'
+                      : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <Globe className="w-4 h-4 mt-0.5 text-blue-400 flex-shrink-0" />
+                  <div>
+                    <div className="text-xs font-semibold">General & Professional</div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">Collects Name, Email, Phone, Company/Organization, and Job Role.</div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, audience_type: 'student' })}
+                  className={`p-3 rounded-xl border text-left flex items-start gap-3 transition-all ${
+                    formData.audience_type === 'student'
+                      ? 'bg-blue-600/15 border-blue-500 text-white'
+                      : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <Users className="w-4 h-4 mt-0.5 text-indigo-400 flex-shrink-0" />
+                  <div>
+                    <div className="text-xs font-semibold">Student & Academic</div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">Collects Name, Email, Phone, College/University, Branch, and Academic Year.</div>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-300 mb-1.5">Event Description *</label>
               <div className="relative">
                 <AlignLeft className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
                 <textarea
@@ -143,7 +232,7 @@ export const CreateEvent: React.FC = () => {
                   rows={4}
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Provide schedule details, prerequisites, speaker names, and takeaway skills..."
+                  placeholder="Provide key schedule details, prerequisites, speaker highlights, agenda, and takeaways..."
                   className="w-full bg-slate-900 border border-slate-700/80 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500"
                 />
               </div>
@@ -198,9 +287,99 @@ export const CreateEvent: React.FC = () => {
                   required
                   value={formData.venue}
                   onChange={(e) => setFormData({ ...formData, venue: e.target.value })}
-                  placeholder="e.g. Main Auditorium, Block C - Campus Hall"
+                  placeholder="e.g. Grand Convention Center / Hall 4 / Virtual via Google Meet"
                   className="w-full bg-slate-900 border border-slate-700/80 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500"
                 />
+              </div>
+            </div>
+          </div>
+
+          {/* Section 3: Custom Registration Questions */}
+          <div className="space-y-4 pt-4 border-t border-slate-800">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-blue-400">3. Custom Registration Questions</h2>
+                <p className="text-[11px] text-slate-400">Add bespoke questions for your attendees (e.g. dietary preference, T-shirt size, GitHub link)</p>
+              </div>
+              <span className="text-[11px] text-slate-500">{customQuestions.length} added</span>
+            </div>
+
+            {/* Existing Questions List */}
+            {customQuestions.length > 0 && (
+              <div className="space-y-2">
+                {customQuestions.map((q) => (
+                  <div key={q.id} className="p-3 bg-slate-900/80 border border-slate-800 rounded-xl flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-medium text-white flex items-center gap-2">
+                        {q.label}
+                        {q.required && <span className="text-[10px] text-rose-400 bg-rose-950/60 px-1.5 py-0.5 rounded">Required</span>}
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-0.5 capitalize">
+                        Type: {q.type} {q.options && `(Options: ${q.options})`}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeCustomQuestion(q.id)}
+                      className="text-slate-400 hover:text-rose-400 p-1"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Add New Question Row */}
+            <div className="p-3 bg-slate-950/60 border border-dashed border-slate-800 rounded-xl space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <input
+                  type="text"
+                  placeholder="Question (e.g. T-Shirt Size, GitHub URL)"
+                  value={newQuestionLabel}
+                  onChange={(e) => setNewQuestionLabel(e.target.value)}
+                  className="sm:col-span-2 bg-slate-900 border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                />
+                <select
+                  value={newQuestionType}
+                  onChange={(e) => setNewQuestionType(e.target.value as any)}
+                  className="bg-slate-900 border border-slate-700/80 rounded-lg px-2.5 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
+                >
+                  <option value="text">Text Input</option>
+                  <option value="select">Dropdown Select</option>
+                  <option value="checkbox">Yes/No Checkbox</option>
+                </select>
+              </div>
+
+              {newQuestionType === 'select' && (
+                <input
+                  type="text"
+                  placeholder="Comma-separated options (e.g. S, M, L, XL, XXL)"
+                  value={newQuestionOptions}
+                  onChange={(e) => setNewQuestionOptions(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                />
+              )}
+
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={newQuestionRequired}
+                    onChange={(e) => setNewQuestionRequired(e.target.checked)}
+                    className="rounded bg-slate-900 border-slate-700 text-blue-600 focus:ring-0"
+                  />
+                  <span>Mandatory field</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={addCustomQuestion}
+                  disabled={!newQuestionLabel.trim()}
+                  className="px-3 py-1.5 rounded-lg bg-blue-600/20 text-blue-400 hover:bg-blue-600 hover:text-white text-xs font-medium transition-colors flex items-center gap-1.5 disabled:opacity-40"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Question</span>
+                </button>
               </div>
             </div>
           </div>

@@ -2,9 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   Calendar, MapPin, Users, CheckCircle2, Star, Sparkles, Copy, ExternalLink,
-  QrCode, Award, MessageSquare, Activity, Search, ShieldCheck, RefreshCw, AlertCircle, BarChart2, FileText
+  QrCode, Award, MessageSquare, Activity, Search, ShieldCheck, RefreshCw, 
+  AlertCircle, BarChart2, FileText, TrendingUp, Share2, Send, Tag, Briefcase
 } from 'lucide-react';
-import { eventApi, registrationApi, attendanceApi, feedbackApi, certificateApi } from '../lib/api';
+import { eventApi, registrationApi, attendanceApi, feedbackApi, certificateApi, aiAgentApi } from '../lib/api';
 import { ProactiveMonitor } from '../components/ProactiveMonitor';
 import { RealtimeStatusBadge } from '../components/RealtimeStatusBadge';
 import { useRealtimeSubscription } from '../lib/realtime';
@@ -16,7 +17,7 @@ export const EventDetails: React.FC<{ onOpenAiCopilot: (eventId: string, eventNa
 
   const [event, setEvent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'participants' | 'checkin' | 'feedback' | 'certificates'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'growth' | 'participants' | 'checkin' | 'feedback' | 'certificates'>('overview');
 
   // Realtime subscription for attendance table
   const realtimeStatus = useRealtimeSubscription('attendance', eventId, () => {
@@ -38,6 +39,13 @@ export const EventDetails: React.FC<{ onOpenAiCopilot: (eventId: string, eventNa
 
   // Copy Feedback State
   const [copiedLink, setCopiedLink] = useState('');
+
+  // AI Outreach Campaign State
+  const [campaignChannel, setCampaignChannel] = useState('all');
+  const [campaignAudience, setCampaignAudience] = useState('General');
+  const [campaignLoading, setCampaignLoading] = useState(false);
+  const [campaignResult, setCampaignResult] = useState<any>(null);
+  const [customRefParam, setCustomRefParam] = useState('');
 
   useEffect(() => {
     if (eventId) {
@@ -78,6 +86,20 @@ export const EventDetails: React.FC<{ onOpenAiCopilot: (eventId: string, eventNa
       setFeedbackSummary(res.data);
     } catch (err) {
       console.error('Error fetching feedback:', err);
+    }
+  };
+
+  const handleGenerateCampaign = async () => {
+    if (!eventId) return;
+    setCampaignLoading(true);
+    setCampaignResult(null);
+    try {
+      const res = await aiAgentApi.generateCampaign(eventId, campaignChannel, campaignAudience);
+      setCampaignResult(res.data);
+    } catch (err: any) {
+      alert(err.response?.data?.detail || 'Error generating AI campaign.');
+    } finally {
+      setCampaignLoading(false);
     }
   };
 
@@ -152,6 +174,8 @@ export const EventDetails: React.FC<{ onOpenAiCopilot: (eventId: string, eventNa
     certificates_issued: 0,
   };
 
+  const referralMetrics = event.referral_metrics || {};
+
   return (
     <div className="space-y-6 pb-12">
       
@@ -161,7 +185,7 @@ export const EventDetails: React.FC<{ onOpenAiCopilot: (eventId: string, eventNa
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <span className="px-3 py-1 rounded-full text-xs font-semibold uppercase bg-blue-950 border border-blue-800 text-blue-300">
-                {event.event_type}
+                {event.event_type.replace('_', ' ')}
               </span>
               <span className="text-xs text-emerald-400 font-medium">● {event.status}</span>
               <RealtimeStatusBadge status={realtimeStatus} />
@@ -239,6 +263,16 @@ export const EventDetails: React.FC<{ onOpenAiCopilot: (eventId: string, eventNa
         >
           <Activity className="w-4 h-4" />
           <span>Overview</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('growth')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all whitespace-nowrap ${
+            activeTab === 'growth' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <TrendingUp className="w-4 h-4" />
+          <span>Growth & Outreach</span>
         </button>
 
         <button
@@ -384,7 +418,202 @@ export const EventDetails: React.FC<{ onOpenAiCopilot: (eventId: string, eventNa
         </div>
       )}
 
-      {/* TAB 2: PARTICIPANTS */}
+      {/* TAB 2: GROWTH & OUTREACH */}
+      {activeTab === 'growth' && (
+        <div className="space-y-6">
+          
+          {/* AI Registration Campaign Studio */}
+          <div className="glass-panel p-6 rounded-2xl border border-slate-800 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-blue-600/10 text-blue-400">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">AI Registration Outreach Studio</h3>
+                  <p className="text-xs text-slate-400">Generate targeted promotional copy crafted specifically for your event parameters</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1">Target Channel</label>
+                <select
+                  value={campaignChannel}
+                  onChange={(e) => setCampaignChannel(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-blue-500"
+                >
+                  <option value="all">Full Multi-Channel Kit</option>
+                  <option value="whatsapp">WhatsApp / Telegram Community</option>
+                  <option value="linkedin">LinkedIn Post</option>
+                  <option value="email">Email Invitation</option>
+                  <option value="instagram">Instagram / Social Caption</option>
+                  <option value="discord">Discord / Slack Announcement</option>
+                  <option value="twitter">X / Twitter Thread</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1">Target Persona</label>
+                <select
+                  value={campaignAudience}
+                  onChange={(e) => setCampaignAudience(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-blue-500"
+                >
+                  <option value="General">General / All Audiences</option>
+                  <option value="Students & Beginners">Students & Early Career</option>
+                  <option value="Senior Engineers & Architects">Senior Tech & Engineers</option>
+                  <option value="Founders & Leaders">Founders & Team Leads</option>
+                  <option value="Designers & Creators">Designers & Creators</option>
+                </select>
+              </div>
+
+              <div className="flex items-end">
+                <button
+                  type="button"
+                  disabled={campaignLoading}
+                  onClick={handleGenerateCampaign}
+                  className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold text-xs shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>{campaignLoading ? 'Generating Copy...' : 'Generate Campaign'}</span>
+                </button>
+              </div>
+            </div>
+
+            {campaignResult && (
+              <div className="mt-4 p-5 rounded-xl bg-slate-900/90 border border-blue-500/30 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-blue-400">Campaign Output</span>
+                    <span className="text-[10px] text-slate-400 font-mono capitalize">({campaignResult.channel})</span>
+                  </div>
+                  <button
+                    onClick={() => copyToClipboard(
+                      typeof campaignResult.campaign === 'string'
+                        ? campaignResult.campaign
+                        : JSON.stringify(campaignResult.campaign, null, 2),
+                      'campaign'
+                    )}
+                    className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs flex items-center gap-1"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>{copiedLink === 'campaign' ? 'Copied!' : 'Copy Copy'}</span>
+                  </button>
+                </div>
+
+                <div className="text-xs text-slate-200 leading-relaxed space-y-3 whitespace-pre-wrap font-sans">
+                  {typeof campaignResult.campaign === 'string' ? (
+                    <div>{campaignResult.campaign}</div>
+                  ) : (
+                    <div className="space-y-3">
+                      {campaignResult.campaign?.subject_line && (
+                        <div>
+                          <span className="font-semibold text-blue-400">Subject: </span>
+                          <span>{campaignResult.campaign.subject_line}</span>
+                        </div>
+                      )}
+                      {campaignResult.campaign?.headline && (
+                        <div>
+                          <span className="font-semibold text-cyan-400">Headline: </span>
+                          <span>{campaignResult.campaign.headline}</span>
+                        </div>
+                      )}
+                      {campaignResult.campaign?.body && (
+                        <div>{campaignResult.campaign.body}</div>
+                      )}
+                      {campaignResult.campaign?.call_to_action && (
+                        <div className="font-semibold text-emerald-400">
+                          CTA: {campaignResult.campaign.call_to_action}
+                        </div>
+                      )}
+                      {campaignResult.campaign?.hashtags && (
+                        <div className="text-slate-400">{campaignResult.campaign.hashtags}</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Tracked Registration Links Generator */}
+          <div className="glass-panel p-6 rounded-2xl border border-slate-800 space-y-4">
+            <div>
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <Share2 className="w-4 h-4 text-emerald-400" />
+                Tracked Registration Links & Attribution
+              </h3>
+              <p className="text-xs text-slate-400">
+                Share customized links across your promotion channels to track exactly which channels convert attendees.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {[
+                { name: 'WhatsApp Communities', tag: 'whatsapp', color: 'text-emerald-400' },
+                { name: 'LinkedIn Posts & DM', tag: 'linkedin', color: 'text-blue-400' },
+                { name: 'Email Newsletter', tag: 'newsletter', color: 'text-amber-400' },
+                { name: 'Twitter / X Thread', tag: 'twitter', color: 'text-cyan-400' },
+                { name: 'Instagram Bio', tag: 'instagram', color: 'text-rose-400' },
+                { name: 'Discord Server', tag: 'discord', color: 'text-indigo-400' },
+              ].map((ch) => {
+                const trackedUrl = `${publicRegisterUrl}?ref=${ch.tag}`;
+                const count = referralMetrics[ch.tag] || 0;
+                return (
+                  <div key={ch.tag} className="p-3.5 bg-slate-900 border border-slate-800 rounded-xl space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className={`font-semibold ${ch.color}`}>{ch.name}</span>
+                      <span className="text-[11px] font-mono text-slate-400 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
+                        {count} registered
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        readOnly
+                        value={trackedUrl}
+                        className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-[11px] font-mono text-slate-300"
+                      />
+                      <button
+                        onClick={() => copyToClipboard(trackedUrl, ch.tag)}
+                        className="px-2.5 py-1 rounded-lg bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 text-xs font-medium flex items-center gap-1 shrink-0"
+                      >
+                        <Copy className="w-3 h-3" />
+                        <span>{copiedLink === ch.tag ? 'Copied' : 'Copy'}</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Custom Referral Link Creator */}
+            <div className="pt-3 border-t border-slate-800 flex flex-col sm:flex-row items-center gap-3">
+              <span className="text-xs text-slate-300 shrink-0">Custom Tracking Code:</span>
+              <input
+                type="text"
+                placeholder="e.g. campus_ambassador_alex, partner_meetup"
+                value={customRefParam}
+                onChange={(e) => setCustomRefParam(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ''))}
+                className="flex-1 bg-slate-900 border border-slate-700/80 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+              />
+              <button
+                type="button"
+                disabled={!customRefParam.trim()}
+                onClick={() => copyToClipboard(`${publicRegisterUrl}?ref=${customRefParam.trim()}`, 'custom_ref')}
+                className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium transition-colors disabled:opacity-40 shrink-0"
+              >
+                {copiedLink === 'custom_ref' ? 'Link Copied!' : 'Copy Custom Link'}
+              </button>
+            </div>
+          </div>
+
+        </div>
+      )}
+
+      {/* TAB 3: PARTICIPANTS */}
       {activeTab === 'participants' && (
         <div className="space-y-4">
           <div className="glass-panel p-4 rounded-2xl border border-slate-800 flex flex-col sm:flex-row gap-3">
@@ -394,7 +623,7 @@ export const EventDetails: React.FC<{ onOpenAiCopilot: (eventId: string, eventNa
                 type="text"
                 value={partSearch}
                 onChange={(e) => setPartSearch(e.target.value)}
-                placeholder="Search participant by name, email, college, token..."
+                placeholder="Search participant by name, email, company, college, token..."
                 className="w-full bg-slate-900 border border-slate-700/80 rounded-xl pl-10 pr-4 py-2 text-xs text-slate-100 placeholder-slate-400 focus:outline-none focus:border-blue-500"
               />
             </div>
@@ -411,7 +640,7 @@ export const EventDetails: React.FC<{ onOpenAiCopilot: (eventId: string, eventNa
           {participants.length === 0 ? (
             <div className="p-12 text-center glass-panel rounded-2xl text-xs text-slate-400 space-y-2">
               <p>No participants registered yet for this event.</p>
-              <p className="text-[11px] text-slate-500">Share the public registration link to accept signups.</p>
+              <p className="text-[11px] text-slate-500">Share your registration link in the Growth tab to drive attendee signups.</p>
             </div>
           ) : (
             <div className="glass-panel rounded-2xl border border-slate-800 overflow-x-auto">
@@ -419,7 +648,8 @@ export const EventDetails: React.FC<{ onOpenAiCopilot: (eventId: string, eventNa
                 <thead className="bg-slate-900/80 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
                   <tr>
                     <th className="p-3.5">Participant</th>
-                    <th className="p-3.5">College & Branch</th>
+                    <th className="p-3.5">Organization / Role</th>
+                    <th className="p-3.5">Referral Source</th>
                     <th className="p-3.5">Token</th>
                     <th className="p-3.5">Attendance</th>
                     <th className="p-3.5">Certificate</th>
@@ -433,8 +663,25 @@ export const EventDetails: React.FC<{ onOpenAiCopilot: (eventId: string, eventNa
                         <div className="text-[11px] text-slate-400">{p.email}</div>
                       </td>
                       <td className="p-3.5">
-                        <div>{p.college}</div>
-                        <div className="text-[11px] text-slate-400">{p.branch} • Year {p.year}</div>
+                        {p.company || p.college ? (
+                          <>
+                            <div className="text-slate-200">{p.company || p.college}</div>
+                            <div className="text-[11px] text-slate-400">
+                              {p.role ? p.role : p.branch ? `${p.branch} • Year ${p.year}` : ''}
+                            </div>
+                          </>
+                        ) : (
+                          <span className="text-slate-500">-</span>
+                        )}
+                      </td>
+                      <td className="p-3.5">
+                        {p.referral_source ? (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-950 border border-blue-800 text-blue-300 capitalize">
+                            {p.referral_source}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-500">Direct</span>
+                        )}
                       </td>
                       <td className="p-3.5 font-mono text-cyan-400 font-semibold">{p.registration_token}</td>
                       <td className="p-3.5">
@@ -466,7 +713,7 @@ export const EventDetails: React.FC<{ onOpenAiCopilot: (eventId: string, eventNa
         </div>
       )}
 
-      {/* TAB 3: CHECK-IN SCANNER */}
+      {/* TAB 4: CHECK-IN SCANNER */}
       {activeTab === 'checkin' && (
         <div className="max-w-xl mx-auto space-y-6">
           <div className="glass-panel p-6 rounded-2xl border border-slate-800 space-y-4">
@@ -512,7 +759,7 @@ export const EventDetails: React.FC<{ onOpenAiCopilot: (eventId: string, eventNa
                 {checkInResult.success && checkInResult.data.participant && (
                   <div className="text-[11px] text-slate-300 space-y-1">
                     <div>Name: {checkInResult.data.participant.name}</div>
-                    <div>College: {checkInResult.data.participant.college}</div>
+                    <div>Org: {checkInResult.data.participant.company || checkInResult.data.participant.college}</div>
                   </div>
                 )}
                 {!checkInResult.success && <div>{checkInResult.error}</div>}
@@ -522,7 +769,7 @@ export const EventDetails: React.FC<{ onOpenAiCopilot: (eventId: string, eventNa
         </div>
       )}
 
-      {/* TAB 4: FEEDBACK & RATINGS */}
+      {/* TAB 5: FEEDBACK & RATINGS */}
       {activeTab === 'feedback' && (
         <div className="space-y-6">
           {feedbackSummary && feedbackSummary.total_responses > 0 ? (
@@ -574,7 +821,7 @@ export const EventDetails: React.FC<{ onOpenAiCopilot: (eventId: string, eventNa
         </div>
       )}
 
-      {/* TAB 5: CERTIFICATES */}
+      {/* TAB 6: CERTIFICATES */}
       {activeTab === 'certificates' && (
         <div className="max-w-xl mx-auto space-y-6">
           <div className="glass-panel p-6 rounded-2xl border border-slate-800 space-y-4 text-center">

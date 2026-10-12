@@ -35,6 +35,7 @@ export const eventApi = {
 // Registration & Participant API endpoints
 export const registrationApi = {
   registerParticipant: (eventId: string, data: any) => api.post(`/api/register/${eventId}`, data),
+  lookupTicket: (eventId: string, email: string) => api.post(`/api/register/${eventId}/lookup`, { email }),
   getParticipants: (eventId: string, search?: string, status?: string) => 
     api.get(`/api/events/${eventId}/participants`, { params: { search, status_filter: status } }),
 };
@@ -61,4 +62,8 @@ export const certificateApi = {
 export const aiAgentApi = {
   chat: (eventId: string | undefined, messages: Array<{ role: string; content: string }>) => 
     api.post('/api/ai/agent/chat', { event_id: eventId, messages }),
+  askAttendeeAssistant: (eventId: string, query: string) =>
+    api.post('/api/ai/attendee-qa', { event_id: eventId, query }),
+  generateCampaign: (eventId: string, channel: string = 'all', targetAudience: string = 'General') =>
+    api.post('/api/ai/agent/campaign', { event_id: eventId, channel, target_audience: targetAudience }),
 };

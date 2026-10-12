@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { Zap, ShieldCheck, Mail, Lock, User, Building2, ArrowRight } from 'lucide-react';
+import { Zap, Mail, Lock, User, Building2, ArrowRight } from 'lucide-react';
 
 export const AuthPage: React.FC<{ setUser: (user: any) => void }> = ({ setUser }) => {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -9,6 +9,7 @@ export const AuthPage: React.FC<{ setUser: (user: any) => void }> = ({ setUser }
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [organization, setOrganization] = useState('');
+  const [orgType, setOrgType] = useState('tech_community');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -24,7 +25,7 @@ export const AuthPage: React.FC<{ setUser: (user: any) => void }> = ({ setUser }
     try {
       if (isSignUp) {
         if (!fullName || !organization) {
-          setErrorMsg('Please enter your full name and college/organization name.');
+          setErrorMsg('Please enter your full name and organization / community name.');
           setLoading(false);
           return;
         }
@@ -36,6 +37,7 @@ export const AuthPage: React.FC<{ setUser: (user: any) => void }> = ({ setUser }
             data: {
               full_name: fullName,
               organization: organization,
+              org_type: orgType,
             },
           },
         });
@@ -74,7 +76,7 @@ export const AuthPage: React.FC<{ setUser: (user: any) => void }> = ({ setUser }
         
         {/* Header */}
         <div className="text-center space-y-2">
-          <div className="inline-flex p-3 rounded-2xl bg-blue-600/10 border border-blue-500/20 text-blue-400 mb-2">
+          <div className="inline-flex p-3 rounded-2xl bg-blue-600/10 border border-blue-500/20 text-blue-400 mb-2 shadow-lg shadow-blue-500/10">
             <Zap className="w-8 h-8" />
           </div>
           <h1 className="text-3xl font-extrabold tracking-tight gradient-text">
@@ -82,8 +84,8 @@ export const AuthPage: React.FC<{ setUser: (user: any) => void }> = ({ setUser }
           </h1>
           <p className="text-sm text-slate-400">
             {isSignUp
-              ? 'Start managing college events, GDG workshops, & hackathons with real-time AI intelligence.'
-              : 'Sign in to access your event operations dashboard.'}
+              ? 'Empower tech communities, conferences, corporate summits, college clubs, & cultural fests with real-time AI operations.'
+              : 'Sign in to access your universal event operations dashboard.'}
           </p>
         </div>
 
@@ -147,7 +149,23 @@ export const AuthPage: React.FC<{ setUser: (user: any) => void }> = ({ setUser }
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1.5">Organization / College Club</label>
+                  <label className="block text-xs font-medium text-slate-300 mb-1.5">Organization / Host Category</label>
+                  <select
+                    value={orgType}
+                    onChange={(e) => setOrgType(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 mb-2"
+                  >
+                    <option value="tech_community">Tech Community / Meetup</option>
+                    <option value="corporate">Company / Enterprise Summit</option>
+                    <option value="college_club">College Club / University Chapter</option>
+                    <option value="cultural_arts">Cultural Fest / Arts & Entertainment</option>
+                    <option value="sports">Sports & Gaming League</option>
+                    <option value="independent">Independent Creator / Workshop Host</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1.5">Organization / Entity Name</label>
                   <div className="relative">
                     <Building2 className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
                     <input
@@ -155,7 +173,7 @@ export const AuthPage: React.FC<{ setUser: (user: any) => void }> = ({ setUser }
                       required={isSignUp}
                       value={organization}
                       onChange={(e) => setOrganization(e.target.value)}
-                      placeholder="GDG On Campus / ACM Student Chapter"
+                      placeholder="e.g. Cloud Native Group, Google Developers, Stanford ACM, Acme Corp"
                       className="w-full bg-slate-900 border border-slate-700/80 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                     />
                   </div>
@@ -164,7 +182,7 @@ export const AuthPage: React.FC<{ setUser: (user: any) => void }> = ({ setUser }
             )}
 
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1.5">Organizer Email</label>
+              <label className="block text-xs font-medium text-slate-300 mb-1.5">Work / Organizer Email</label>
               <div className="relative">
                 <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
                 <input
@@ -172,7 +190,7 @@ export const AuthPage: React.FC<{ setUser: (user: any) => void }> = ({ setUser }
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="organizer@college.edu"
+                  placeholder="organizer@domain.com"
                   className="w-full bg-slate-900 border border-slate-700/80 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 />
               </div>
@@ -199,7 +217,7 @@ export const AuthPage: React.FC<{ setUser: (user: any) => void }> = ({ setUser }
               disabled={loading}
               className="w-full mt-2 py-3 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold text-xs tracking-wide shadow-lg shadow-blue-600/25 transition-all flex items-center justify-center gap-2 group disabled:opacity-50"
             >
-              <span>{loading ? 'Processing...' : isSignUp ? 'Create Account' : 'Sign In'}</span>
+              <span>{loading ? 'Processing...' : isSignUp ? 'Create Organizer Account' : 'Sign In'}</span>
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </button>
           </form>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Sparkles, Send, Bot, User, RefreshCw, BarChart2, Megaphone, CheckCircle2 } from 'lucide-react';
+import { X, Sparkles, Send, Bot, User, RefreshCw, BarChart2, Megaphone, TrendingUp } from 'lucide-react';
 import { aiAgentApi } from '../lib/api';
 
 interface AIAssistantDrawerProps {
@@ -19,8 +19,8 @@ export const AIAssistantDrawer: React.FC<AIAssistantDrawerProps> = ({
     {
       role: 'assistant',
       content: eventName
-        ? `Hello! I'm your EventFlow Gemini Operations Agent for **${eventName}**. Ask me for real-time attendance analytics, feedback sentiment summaries, or custom marketing copy!`
-        : "Hello! I'm your EventFlow Gemini AI Agent. Select an event from your dashboard or ask me general event operations questions.",
+        ? `Hello! I'm your EventFlow Gemini Operations Agent for **${eventName}**. Ask me for real-time attendance analytics, registration growth ideas, feedback sentiment, or multi-channel marketing campaigns!`
+        : "Hello! I'm your EventFlow Gemini AI Agent. Select an event from your dashboard or ask me general event operations and registration queries.",
     },
   ]);
   const [input, setInput] = useState('');
@@ -92,18 +92,25 @@ export const AIAssistantDrawer: React.FC<AIAssistantDrawerProps> = ({
               <span>Full Analytics</span>
             </button>
             <button
-              onClick={() => handleSend("Analyze participant department and college demographics.")}
+              onClick={() => handleSend("Analyze registration velocity and recommend tactics to increase registrations.")}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 whitespace-nowrap transition-colors"
+            >
+              <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Registration Growth</span>
+            </button>
+            <button
+              onClick={() => handleSend("Generate a promotional marketing campaign for this event across WhatsApp, LinkedIn, and Email.")}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 whitespace-nowrap transition-colors"
+            >
+              <Megaphone className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Campaign Copy</span>
+            </button>
+            <button
+              onClick={() => handleSend("Analyze attendee company, college, and role demographics.")}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 whitespace-nowrap transition-colors"
             >
               <User className="w-3.5 h-3.5 text-indigo-400" />
               <span>Demographics</span>
-            </button>
-            <button
-              onClick={() => handleSend("Generate a professional WhatsApp/Email announcement copy for this event.")}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 whitespace-nowrap transition-colors"
-            >
-              <Megaphone className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Announcement</span>
             </button>
           </div>
         )}

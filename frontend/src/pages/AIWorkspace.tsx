@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Bot, User, Send, CheckCircle2, Sparkles, AlertCircle, RefreshCw, BarChart2, ShieldAlert, ArrowRight, Table, Layers } from 'lucide-react';
+import { Bot, User, Send, CheckCircle2, Sparkles, RefreshCw, ShieldAlert, Table, Layers, TrendingUp, Megaphone } from 'lucide-react';
 import { eventApi, api } from '../lib/api';
 
 export const AIWorkspace: React.FC = () => {
@@ -36,7 +36,7 @@ export const AIWorkspace: React.FC = () => {
           {
             id: 'welcome',
             role: 'assistant',
-            content: `Welcome to the EventFlow AI Workspace for **${list[0].name}**! Ask me questions like "How many people registered?", "Who hasn't checked in?", or "What is the feedback score?".`,
+            content: `Welcome to the EventFlow AI Workspace for **${list[0].name}**! Ask me questions like "How many people registered?", "Who hasn't checked in?", "Analyze registration velocity", or "Generate a promotional marketing campaign".`,
             executedTools: ['get_event', 'get_registration_statistics'],
           },
         ]);
@@ -58,7 +58,7 @@ export const AIWorkspace: React.FC = () => {
     setMessages((prev) => [...prev, userMsg]);
     if (!customText) setInput('');
     setAgentThinking(true);
-    setActiveToolTrace(['Analyzing user intent...']);
+    setActiveToolTrace(['Analyzing intent and determining database tools...']);
 
     try {
       const history = messages.concat(userMsg).map((m) => ({ role: m.role, content: m.content }));
@@ -86,7 +86,7 @@ export const AIWorkspace: React.FC = () => {
         {
           id: Date.now().toString(),
           role: 'assistant',
-          content: '⚠️ Failed to execute AI tool queries against Supabase. Please ensure backend is running at http://localhost:8000.',
+          content: '⚠️ Failed to execute AI queries against database. Please ensure backend is running at http://localhost:8000.',
         },
       ]);
     } finally {
@@ -102,7 +102,6 @@ export const AIWorkspace: React.FC = () => {
         params: params,
       });
 
-      // Update message to remove pendingAction and show success reply
       setMessages((prev) =>
         prev.map((m) =>
           m.id === msgId
@@ -141,7 +140,7 @@ export const AIWorkspace: React.FC = () => {
                     {
                       id: Date.now().toString(),
                       role: 'assistant',
-                      content: `Active event changed to **${selected?.name}**. Ask me any operational query!`,
+                      content: `Active event changed to **${selected?.name}**. Ask me any operational or registration growth query!`,
                       executedTools: ['get_event'],
                     },
                   ]);
@@ -158,31 +157,43 @@ export const AIWorkspace: React.FC = () => {
           </div>
 
           <div className="space-y-2 pt-3 border-t border-slate-800">
-            <h4 className="text-[11px] font-semibold text-slate-400">Quick Prompt Shortcuts</h4>
+            <h4 className="text-[11px] font-semibold text-slate-400">Operations & Growth Prompts</h4>
             <div className="space-y-1.5 text-xs">
               <button
-                onClick={() => handleSendPrompt('How many people registered?')}
-                className="w-full text-left p-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 transition-colors border border-slate-800 truncate"
+                onClick={() => handleSendPrompt('How fast are registrations growing? Analyze registration velocity.')}
+                className="w-full text-left p-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 transition-colors border border-slate-800 truncate flex items-center gap-1.5"
               >
-                📊 Total Registrations
+                <span>🚀</span> <span className="truncate">Registration Velocity</span>
+              </button>
+              <button
+                onClick={() => handleSendPrompt('How can we increase registrations? Recommend growth tactics.')}
+                className="w-full text-left p-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 transition-colors border border-slate-800 truncate flex items-center gap-1.5"
+              >
+                <span>📈</span> <span className="truncate">Growth Tactics</span>
+              </button>
+              <button
+                onClick={() => handleSendPrompt('Draft a promotional campaign across LinkedIn and WhatsApp.')}
+                className="w-full text-left p-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 transition-colors border border-slate-800 truncate flex items-center gap-1.5"
+              >
+                <span>📢</span> <span className="truncate">Campaign Copy</span>
+              </button>
+              <button
+                onClick={() => handleSendPrompt('How many people registered?')}
+                className="w-full text-left p-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 transition-colors border border-slate-800 truncate flex items-center gap-1.5"
+              >
+                <span>📊</span> <span className="truncate">Total Registrations</span>
               </button>
               <button
                 onClick={() => handleSendPrompt("Who hasn't checked in?")}
-                className="w-full text-left p-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 transition-colors border border-slate-800 truncate"
+                className="w-full text-left p-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 transition-colors border border-slate-800 truncate flex items-center gap-1.5"
               >
-                ⚠️ Find Absentees
+                <span>⚠️</span> <span className="truncate">Find Absentees</span>
               </button>
               <button
-                onClick={() => handleSendPrompt('What is the current attendance rate?')}
-                className="w-full text-left p-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 transition-colors border border-slate-800 truncate"
+                onClick={() => handleSendPrompt('Summarize attendee feedback insights and ratings.')}
+                className="w-full text-left p-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 transition-colors border border-slate-800 truncate flex items-center gap-1.5"
               >
-                ✅ Attendance Rate
-              </button>
-              <button
-                onClick={() => handleSendPrompt('What did students dislike in feedback?')}
-                className="w-full text-left p-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 transition-colors border border-slate-800 truncate"
-              >
-                ⭐ Feedback Insights
+                <span>⭐</span> <span className="truncate">Feedback Insights</span>
               </button>
             </div>
           </div>
@@ -248,7 +259,7 @@ export const AIWorkspace: React.FC = () => {
                         <tr>
                           <th className="p-1.5">Name</th>
                           <th className="p-1.5">Email</th>
-                          <th className="p-1.5">College</th>
+                          <th className="p-1.5">Organization / College</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-900">
@@ -256,7 +267,7 @@ export const AIWorkspace: React.FC = () => {
                           <tr key={i}>
                             <td className="p-1.5 font-medium text-slate-100">{a.name}</td>
                             <td className="p-1.5">{a.email}</td>
-                            <td className="p-1.5">{a.college}</td>
+                            <td className="p-1.5">{a.company || a.college || '-'}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -325,7 +336,7 @@ export const AIWorkspace: React.FC = () => {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask EventFlow AI (e.g. 'Who hasn't checked in?', 'Summarize feedback')..."
+              placeholder="Ask EventFlow AI (e.g. 'How fast are registrations growing?', 'Draft LinkedIn promo', 'Who hasn't checked in?')..."
               className="flex-1 bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-3 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500"
             />
             <button

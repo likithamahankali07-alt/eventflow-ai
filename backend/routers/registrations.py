@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, status, Query
 from pydantic import BaseModel, EmailStr, Field
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from db import supabase
 from auth import get_current_user, AuthenticatedUser
 import uuid
@@ -13,11 +13,21 @@ router = APIRouter(prefix="/api", tags=["Registrations & Participants"])
 class PublicRegistrationRequest(BaseModel):
     name: str = Field(..., min_length=2)
     email: EmailStr
-    phone: str
-    college: str
-    branch: str
-    year: str
-    student_id: str
+    phone: Optional[str] = ""
+    # Academic/Student fields (Optional)
+    college: Optional[str] = ""
+    branch: Optional[str] = ""
+    year: Optional[str] = ""
+    student_id: Optional[str] = ""
+    # Professional/General fields (Optional)
+    company: Optional[str] = ""
+    role: Optional[str] = ""
+    # Custom Questions Answers & Referral Tracking
+    custom_answers: Optional[Dict[str, Any]] = {}
+    referral_source: Optional[str] = "direct"
+
+class TicketLookupRequest(BaseModel):
+    email: EmailStr
 
 @router.post("/register/{event_id}", status_code=status.HTTP_201_CREATED)
 def register_participant(event_id: str, payload: PublicRegistrationRequest):
@@ -41,27 +51,36 @@ def register_participant(event_id: str, payload: PublicRegistrationRequest):
 
         # 3. Create or update Participant record by unique email
         part_res = supabase.table("participants").select("id").eq("email", payload.email).execute()
+        part_data = {
+            "name": payload.name,
+            "email": payload.email,
+            "phone": payload.phone or "",
+            "college": payload.college or "",
+            "branch": payload.branch or "",
+            "year": payload.year or "",
+            "student_id": payload.student_id or "",
+            "company": payload.company or "",
+            "role": payload.role or ""
+        }
+
         if part_res.data:
             participant_id = part_res.data[0]["id"]
-            # Update existing participant info
-            supabase.table("participants").update({
-                "name": payload.name,
-                "phone": payload.phone,
-                "college": payload.college,
-                "branch": payload.branch,
-                "year": payload.year,
-                "student_id": payload.student_id
-            }).eq("id", participant_id).execute()
+            try:
+                supabase.table("participants").update(part_data).eq("id", participant_id).execute()
+            except Exception as update_err:
+                # Fallback if DB doesn't have company/role columns yet
+                part_data.pop("company", None)
+                part_data.pop("role", None)
+                supabase.table("participants").update(part_data).eq("id", participant_id).execute()
         else:
-            new_part = supabase.table("participants").insert({
-                "name": payload.name,
-                "email": payload.email,
-                "phone": payload.phone,
-                "college": payload.college,
-                "branch": payload.branch,
-                "year": payload.year,
-                "student_id": payload.student_id
-            }).execute()
+            try:
+                new_part = supabase.table("participants").insert(part_data).execute()
+            except Exception as insert_err:
+                # Fallback if DB doesn't have company/role columns yet
+                part_data.pop("company", None)
+                part_data.pop("role", None)
+                new_part = supabase.table("participants").insert(part_data).execute()
+
             if not new_part.data:
                 raise HTTPException(status_code=400, detail="Failed to create participant record")
             participant_id = new_part.data[0]["id"]
@@ -77,12 +96,22 @@ def register_participant(event_id: str, payload: PublicRegistrationRequest):
 
         # 5. Create Registration record with unique token
         token = f"EVT-{uuid.uuid4().hex[:8].upper()}"
-        reg_insert = supabase.table("registrations").insert({
+        reg_data = {
             "event_id": event_id,
             "participant_id": participant_id,
             "registration_status": "confirmed",
-            "registration_token": token
-        }).execute()
+            "registration_token": token,
+            "referral_source": payload.referral_source or "direct",
+            "custom_answers": payload.custom_answers or {}
+        }
+
+        try:
+            reg_insert = supabase.table("registrations").insert(reg_data).execute()
+        except Exception as reg_err:
+            # Fallback if DB doesn't have referral_source/custom_answers yet
+            reg_data.pop("referral_source", None)
+            reg_data.pop("custom_answers", None)
+            reg_insert = supabase.table("registrations").insert(reg_data).execute()
 
         if not reg_insert.data:
             raise HTTPException(status_code=400, detail="Failed to complete registration")
@@ -90,11 +119,16 @@ def register_participant(event_id: str, payload: PublicRegistrationRequest):
         registration = reg_insert.data[0]
 
         # Record activity
+        affiliation = payload.company or payload.college or "General Attendee"
         supabase.table("event_activity").insert({
             "event_id": event_id,
             "activity_type": "NEW_REGISTRATION",
-            "description": f"{payload.name} ({payload.college}) registered for the event.",
-            "metadata": {"participant_name": payload.name, "email": payload.email}
+            "description": f"{payload.name} ({affiliation}) registered for the event via {payload.referral_source or 'direct'}.",
+            "metadata": {
+                "participant_name": payload.name,
+                "email": payload.email,
+                "referral_source": payload.referral_source or "direct"
+            }
         }).execute()
 
         return {
@@ -111,6 +145,46 @@ def register_participant(event_id: str, payload: PublicRegistrationRequest):
         logger.error(f"Error during registration: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/register/{event_id}/lookup")
+def lookup_attendee_ticket(event_id: str, payload: TicketLookupRequest):
+    """Allows an attendee to recover their registration token & QR ticket by entering their email address."""
+    if not supabase:
+        raise HTTPException(status_code=503, detail="Database connection unconfigured")
+
+    try:
+        # Find participant
+        part_res = supabase.table("participants").select("id, name, email").eq("email", payload.email.strip()).execute()
+        if not part_res.data:
+            raise HTTPException(status_code=404, detail="No registration found with this email address.")
+
+        participant = part_res.data[0]
+
+        # Find registration for this event
+        reg_res = supabase.table("registrations").select("id, registration_token, registration_status, registered_at").eq("event_id", event_id).eq("participant_id", participant["id"]).execute()
+        if not reg_res.data:
+            raise HTTPException(status_code=404, detail="No registration found for this event with this email address.")
+
+        registration = reg_res.data[0]
+
+        # Fetch event name
+        evt_res = supabase.table("events").select("name").eq("id", event_id).execute()
+        event_name = evt_res.data[0]["name"] if evt_res.data else "Event"
+
+        return {
+            "found": True,
+            "registration_token": registration["registration_token"],
+            "registration_status": registration["registration_status"],
+            "registered_at": registration["registered_at"],
+            "participant_name": participant["name"],
+            "event_name": event_name
+        }
+
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Error looking up ticket: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/events/{event_id}/participants")
 def list_event_participants(
     event_id: str,
@@ -124,7 +198,7 @@ def list_event_participants(
     try:
         # Join registrations with participants
         res = supabase.table("registrations").select(
-            "id, registration_status, registration_token, registered_at, participant_id, participants(id, name, email, phone, college, branch, year, student_id)"
+            "id, registration_status, registration_token, registered_at, participant_id, referral_source, custom_answers, participants(*)"
         ).eq("event_id", event_id).execute()
 
         registrations = res.data or []
@@ -150,6 +224,8 @@ def list_event_participants(
                 "registration_token": reg["registration_token"],
                 "registered_at": reg["registered_at"],
                 "registration_status": reg["registration_status"],
+                "referral_source": reg.get("referral_source") or "direct",
+                "custom_answers": reg.get("custom_answers") or {},
                 "participant_id": pid,
                 "name": part.get("name", "Unknown"),
                 "email": part.get("email", ""),
@@ -158,6 +234,8 @@ def list_event_participants(
                 "branch": part.get("branch", ""),
                 "year": part.get("year", ""),
                 "student_id": part.get("student_id", ""),
+                "company": part.get("company", ""),
+                "role": part.get("role", ""),
                 "is_checked_in": att_data is not None,
                 "check_in_time": att_data.get("check_in_time") if att_data else None,
                 "has_certificate": cert_data is not None,
@@ -167,7 +245,15 @@ def list_event_participants(
             # Search filter logic
             if search:
                 s = search.lower()
-                if not (s in item["name"].lower() or s in item["email"].lower() or s in item["college"].lower() or s in item["registration_token"].lower()):
+                matched = (
+                    s in item["name"].lower() or 
+                    s in item["email"].lower() or 
+                    s in item["college"].lower() or 
+                    s in item["company"].lower() or 
+                    s in item["role"].lower() or 
+                    s in item["registration_token"].lower()
+                )
+                if not matched:
                     continue
 
             # Status filter logic

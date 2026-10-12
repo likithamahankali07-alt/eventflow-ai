@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, status
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Any, Dict
 from datetime import date, time, datetime
 from db import supabase
 from auth import get_current_user, AuthenticatedUser
@@ -14,6 +14,8 @@ class EventCreateRequest(BaseModel):
     name: str = Field(..., min_length=3, max_length=150)
     description: str
     event_type: str = Field(..., example="workshop")
+    audience_type: str = Field(default="general", example="general") # "general", "professional", or "student"
+    custom_questions: Optional[List[str]] = []
     date: str = Field(..., example="2026-10-15")
     start_time: str = Field(..., example="10:00:00")
     end_time: str = Field(..., example="17:00:00")
@@ -25,6 +27,8 @@ class EventUpdateRequest(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     event_type: Optional[str] = None
+    audience_type: Optional[str] = None
+    custom_questions: Optional[List[str]] = None
     date: Optional[str] = None
     start_time: Optional[str] = None
     end_time: Optional[str] = None
@@ -50,7 +54,7 @@ def create_event(
                 "id": current_user.id,
                 "full_name": current_user.email.split("@")[0].capitalize(),
                 "email": current_user.email,
-                "organization": "College Club / Chapter",
+                "organization": "Community / Organization",
                 "role": "organizer"
             }).execute()
 
@@ -66,10 +70,21 @@ def create_event(
             "capacity": payload.capacity,
             "registration_deadline": payload.registration_deadline,
             "status": "upcoming",
-            "registration_open": True
+            "registration_open": True,
+            "audience_type": payload.audience_type or "general",
+            "custom_questions": payload.custom_questions or []
         }
 
-        res = supabase.table("events").insert(event_data).execute()
+        # Attempt insert with optional columns, fallback gracefully if columns not yet added
+        try:
+            res = supabase.table("events").insert(event_data).execute()
+        except Exception as insert_err:
+            # Fallback if DB does not have audience_type/custom_questions columns yet
+            logger.warning(f"Fallback insert without extra columns: {insert_err}")
+            event_data.pop("audience_type", None)
+            event_data.pop("custom_questions", None)
+            res = supabase.table("events").insert(event_data).execute()
+
         if not res.data:
             raise HTTPException(status_code=400, detail="Failed to create event")
 
@@ -80,7 +95,7 @@ def create_event(
             "event_id": event["id"],
             "actor_id": current_user.id,
             "activity_type": "EVENT_CREATED",
-            "description": f"Event '{event['name']}' created with capacity {event['capacity']}.",
+            "description": f"Event '{event['name']}' ({event['event_type']}) created with capacity {event['capacity']}.",
             "metadata": {"capacity": event["capacity"], "venue": event["venue"]}
         }).execute()
 
@@ -117,15 +132,22 @@ def get_public_event(event_id: str):
         raise HTTPException(status_code=503, detail="Database not configured")
 
     try:
-        res = supabase.table("events").select("id, name, description, event_type, date, start_time, end_time, venue, capacity, registration_deadline, status, registration_open").eq("id", event_id).execute()
+        res = supabase.table("events").select("id, name, description, event_type, date, start_time, end_time, venue, capacity, registration_deadline, status, registration_open, audience_type, custom_questions").eq("id", event_id).execute()
         if not res.data:
-            raise HTTPException(status_code=404, detail="Event not found")
+            # Try without audience_type in select in case table doesn't have it
+            res = supabase.table("events").select("id, name, description, event_type, date, start_time, end_time, venue, capacity, registration_deadline, status, registration_open").eq("id", event_id).execute()
+            if not res.data:
+                raise HTTPException(status_code=404, detail="Event not found")
 
         event = res.data[0]
         reg_count = supabase.table("registrations").select("id", count="exact").eq("event_id", event_id).execute().count or 0
         
         event["registered_count"] = reg_count
         event["spots_remaining"] = max(0, event["capacity"] - reg_count)
+        if "audience_type" not in event:
+            event["audience_type"] = "general"
+        if "custom_questions" not in event or not event["custom_questions"]:
+            event["custom_questions"] = []
         
         return event
     except Exception as e:
@@ -147,7 +169,16 @@ def get_event_details(
         event = res.data[0]
 
         # Calculate exact statistics
-        reg_count = supabase.table("registrations").select("id", count="exact").eq("event_id", event_id).execute().count or 0
+        reg_res = supabase.table("registrations").select("id, referral_source").eq("event_id", event_id).execute()
+        registrations = reg_res.data or []
+        reg_count = len(registrations)
+
+        # Calculate referral sources breakdown
+        referral_stats = {}
+        for r in registrations:
+            source = r.get("referral_source") or "direct"
+            referral_stats[source] = referral_stats.get(source, 0) + 1
+
         att_count = supabase.table("attendance").select("id", count="exact").eq("event_id", event_id).execute().count or 0
         feedback_res = supabase.table("feedback").select("overall_rating, content_rating, speaker_rating, organization_rating, hands_on_rating").eq("event_id", event_id).execute()
         
@@ -167,7 +198,8 @@ def get_event_details(
             "attendance_rate": round((att_count / reg_count * 100), 1) if reg_count > 0 else 0.0,
             "feedback_responses": feedback_count,
             "average_rating": avg_rating,
-            "certificates_issued": cert_count
+            "certificates_issued": cert_count,
+            "referral_sources": referral_stats
         }
 
         return event
